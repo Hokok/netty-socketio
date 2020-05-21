@@ -33,6 +33,8 @@ public class OnConnectScanner implements AnnotationScanner  {
 
     @Override
     public void addListener(Namespace namespace, final Object object, final Method method, Annotation annotation) {
+
+        //
         namespace.addConnectListener(new ConnectListener() {
             @Override
             public void onConnect(SocketIOClient client) {
@@ -45,22 +47,28 @@ public class OnConnectScanner implements AnnotationScanner  {
                 }
             }
         });
+
     }
 
     @Override
     public void validate(Method method, Class<?> clazz) {
+
         if (method.getParameterTypes().length != 1) {
             throw new IllegalArgumentException("Wrong OnConnect listener signature: " + clazz + "." + method.getName());
         }
+
         boolean valid = false;
         for (Class<?> eventType : method.getParameterTypes()) {
             if (eventType.equals(SocketIOClient.class)) {
                 valid = true;
+                break;
             }
         }
+
         if (!valid) {
             throw new IllegalArgumentException("Wrong OnConnect listener signature: " + clazz + "." + method.getName());
         }
+
     }
 
 }

@@ -1,12 +1,12 @@
 /**
  * Copyright (c) 2012-2019 Nikita Koksharov
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,6 +24,9 @@ import com.corundumstudio.socketio.namespace.NamespacesHub;
 import com.corundumstudio.socketio.protocol.JsonSupport;
 import com.corundumstudio.socketio.store.StoreFactory;
 
+/**
+ * Base 存储工厂
+ */
 public abstract class BaseStoreFactory implements StoreFactory {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -34,8 +37,17 @@ public abstract class BaseStoreFactory implements StoreFactory {
         return nodeId;
     }
 
+    /**
+     * 初始化方法
+     *
+     * @param namespacesHub    命名空间仓库
+     * @param authorizeHandler 授权管理器
+     * @param jsonSupport      json支持
+     */
     @Override
     public void init(final NamespacesHub namespacesHub, final AuthorizeHandler authorizeHandler, JsonSupport jsonSupport) {
+
+        // 断开连接
         pubSubStore().subscribe(PubSubType.DISCONNECT, new PubSubListener<DisconnectMessage>() {
             @Override
             public void onMessage(DisconnectMessage msg) {
@@ -43,6 +55,7 @@ public abstract class BaseStoreFactory implements StoreFactory {
             }
         }, DisconnectMessage.class);
 
+        // 连接事件
         pubSubStore().subscribe(PubSubType.CONNECT, new PubSubListener<ConnectMessage>() {
             @Override
             public void onMessage(ConnectMessage msg) {
@@ -51,6 +64,7 @@ public abstract class BaseStoreFactory implements StoreFactory {
             }
         }, ConnectMessage.class);
 
+        // 分派事件
         pubSubStore().subscribe(PubSubType.DISPATCH, new PubSubListener<DispatchMessage>() {
             @Override
             public void onMessage(DispatchMessage msg) {
@@ -61,6 +75,7 @@ public abstract class BaseStoreFactory implements StoreFactory {
             }
         }, DispatchMessage.class);
 
+        // 加入事件
         pubSubStore().subscribe(PubSubType.JOIN, new PubSubListener<JoinLeaveMessage>() {
             @Override
             public void onMessage(JoinLeaveMessage msg) {
@@ -71,6 +86,7 @@ public abstract class BaseStoreFactory implements StoreFactory {
             }
         }, JoinLeaveMessage.class);
 
+        // 离开事件
         pubSubStore().subscribe(PubSubType.LEAVE, new PubSubListener<JoinLeaveMessage>() {
             @Override
             public void onMessage(JoinLeaveMessage msg) {
@@ -80,6 +96,7 @@ public abstract class BaseStoreFactory implements StoreFactory {
                 log.debug("{} sessionId: {}", PubSubType.LEAVE, msg.getSessionId());
             }
         }, JoinLeaveMessage.class);
+
     }
 
     @Override

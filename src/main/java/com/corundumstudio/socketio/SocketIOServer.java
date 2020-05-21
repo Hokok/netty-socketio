@@ -1,12 +1,12 @@
 /**
  * Copyright (c) 2012-2019 Nikita Koksharov
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,20 +40,25 @@ import com.corundumstudio.socketio.namespace.NamespacesHub;
 
 /**
  * Fully thread-safe.
- *
  */
 public class SocketIOServer implements ClientListeners {
 
     private static final Logger log = LoggerFactory.getLogger(SocketIOServer.class);
 
+    // 配置拷贝 copy
     private final Configuration configCopy;
+    // 配置
     private final Configuration configuration;
 
+    // 命名空间中心
     private final NamespacesHub namespacesHub;
+    // 主命名空间
     private final SocketIONamespace mainNamespace;
 
+    // pipeline工厂 --->> 这里主要是添加一些 channelHandler
     private SocketIOChannelInitializer pipelineFactory = new SocketIOChannelInitializer();
 
+    // bossGroup 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
 
@@ -121,7 +126,7 @@ public class SocketIOServer implements ClientListeners {
 
     /**
      * Start server asynchronously
-     * 
+     *
      * @return void
      */
     public Future<Void> startAsync() {
@@ -137,8 +142,8 @@ public class SocketIOServer implements ClientListeners {
 
         ServerBootstrap b = new ServerBootstrap();
         b.group(bossGroup, workerGroup)
-        .channel(channelClass)
-        .childHandler(pipelineFactory);
+                .channel(channelClass)
+                .childHandler(pipelineFactory);
         applyConnectionOptions(b);
 
         InetSocketAddress addr = new InetSocketAddress(configCopy.getPort());
@@ -175,6 +180,9 @@ public class SocketIOServer implements ClientListeners {
         bootstrap.option(ChannelOption.SO_BACKLOG, config.getAcceptBackLog());
     }
 
+    /**
+     * 初始化 group
+     */
     protected void initGroups() {
         if (configCopy.isUseLinuxNativeEpoll()) {
             bossGroup = new EpollEventLoopGroup(configCopy.getBossThreads());
@@ -260,7 +268,7 @@ public class SocketIOServer implements ClientListeners {
     public void addListeners(Object listeners) {
         mainNamespace.addListeners(listeners);
     }
-    
+
     @Override
     public void addListeners(Object listeners, Class<?> listenersClass) {
         mainNamespace.addListeners(listeners, listenersClass);

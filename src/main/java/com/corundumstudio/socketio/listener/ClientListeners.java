@@ -64,7 +64,7 @@ public interface ClientListeners {
     /**
      * 添加 ping 监听器
      *
-     * @param listener
+     * @param listener 监听器
      */
     void addPingListener(PingListener listener);
 

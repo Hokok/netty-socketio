@@ -1,12 +1,12 @@
 /**
  * Copyright (c) 2012-2019 Nikita Koksharov
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -66,6 +66,9 @@ import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import io.netty.util.CharsetUtil;
 
+/**
+ * 编码处理器
+ */
 @Sharable
 public class EncoderHandler extends ChannelOutboundHandlerAdapter {
 
@@ -117,8 +120,8 @@ public class EncoderHandler extends ChannelOutboundHandlerAdapter {
         HttpResponse res = new DefaultHttpResponse(HTTP_1_1, HttpResponseStatus.OK);
 
         res.headers().add(HttpHeaderNames.SET_COOKIE, "io=" + msg.getSessionId())
-                    .add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
-                    .add(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, HttpHeaderNames.CONTENT_TYPE);
+                .add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE)
+                .add(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, HttpHeaderNames.CONTENT_TYPE);
 
         String origin = ctx.channel().attr(ORIGIN).get();
         addOriginHeaders(origin, res);
@@ -137,7 +140,7 @@ public class EncoderHandler extends ChannelOutboundHandlerAdapter {
         HttpResponse res = new DefaultHttpResponse(HTTP_1_1, status);
 
         res.headers().add(HttpHeaderNames.CONTENT_TYPE, type)
-                    .add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+                .add(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
         if (msg.getSessionId() != null) {
             res.headers().add(HttpHeaderNames.SET_COOKIE, "io=" + msg.getSessionId());
         }
@@ -176,7 +179,7 @@ public class EncoderHandler extends ChannelOutboundHandlerAdapter {
 
         channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, promise).addListener(ChannelFutureListener.CLOSE);
     }
-    
+
     private void sendError(HttpErrorMessage errorMsg, ChannelHandlerContext ctx, ChannelPromise promise) throws IOException {
         final ByteBuf encBuf = encoder.allocateBuffer(ctx.alloc());
         ByteBufOutputStream out = new ByteBufOutputStream(encBuf);
@@ -203,8 +206,17 @@ public class EncoderHandler extends ChannelOutboundHandlerAdapter {
         }
     }
 
+    /**
+     * write 到客户端
+     *
+     * @param ctx     上下文
+     * @param msg     消息
+     * @param promise
+     * @throws Exception
+     */
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        // 1、如果是 HttpMessage 直接返回
         if (!(msg instanceof HttpMessage)) {
             super.write(ctx, msg, promise);
             return;
@@ -213,9 +225,11 @@ public class EncoderHandler extends ChannelOutboundHandlerAdapter {
         if (msg instanceof OutPacketMessage) {
             OutPacketMessage m = (OutPacketMessage) msg;
             if (m.getTransport() == Transport.WEBSOCKET) {
+                // 处理 websocket 消息
                 handleWebsocket((OutPacketMessage) msg, ctx, promise);
             }
             if (m.getTransport() == Transport.POLLING) {
+                // 处理 Polling 消息
                 handleHTTP((OutPacketMessage) msg, ctx, promise);
             }
         } else if (msg instanceof XHROptionsMessage) {
@@ -227,6 +241,14 @@ public class EncoderHandler extends ChannelOutboundHandlerAdapter {
         }
     }
 
+    /**
+     * 处理 websocket 消息
+     *
+     * @param msg 消息
+     * @param ctx 上下文
+     * @param promise
+     * @throws IOException ioException
+     */
     private void handleWebsocket(final OutPacketMessage msg, ChannelHandlerContext ctx, ChannelPromise promise) throws IOException {
         ChannelFutureList writeFutureList = new ChannelFutureList();
 
@@ -264,6 +286,13 @@ public class EncoderHandler extends ChannelOutboundHandlerAdapter {
         }
     }
 
+    /**
+     *  处理http消息处理器
+     * @param msg 消息
+     * @param ctx 上下文
+     * @param promise
+     * @throws IOException
+     */
     private void handleHTTP(OutPacketMessage msg, ChannelHandlerContext ctx, ChannelPromise promise) throws IOException {
         Channel channel = ctx.channel();
         Attribute<Boolean> attr = channel.attr(WRITE_ONCE);
@@ -317,8 +346,7 @@ public class EncoderHandler extends ChannelOutboundHandlerAdapter {
                         cleanup();
                         return;
                     }
-                }
-                else {
+                } else {
                     allSuccess = false;
                 }
             }

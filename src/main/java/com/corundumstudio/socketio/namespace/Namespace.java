@@ -1,12 +1,12 @@
 /**
  * Copyright (c) 2012-2019 Nikita Koksharov
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -54,22 +54,42 @@ public class Namespace implements SocketIONamespace {
 
     public static final String DEFAULT_NAME = "";
 
+    /***#######################################  监听器组件  #######################################***/
+    // 扫描引擎
     private final ScannerEngine engine = new ScannerEngine();
+    // 事件监听器
     private final ConcurrentMap<String, EventEntry<?>> eventListeners = PlatformDependent.newConcurrentHashMap();
+    // 连接监听器
     private final Queue<ConnectListener> connectListeners = new ConcurrentLinkedQueue<ConnectListener>();
+    // 断连监听器
     private final Queue<DisconnectListener> disconnectListeners = new ConcurrentLinkedQueue<DisconnectListener>();
+    // ping监听器
     private final Queue<PingListener> pingListeners = new ConcurrentLinkedQueue<PingListener>();
+    // 事件拦截器
     private final Queue<EventInterceptor> eventInterceptors = new ConcurrentLinkedQueue<EventInterceptor>();
+    /***#######################################  监听器组件  #######################################***/
 
+
+    /***#######################################  客户端信息  #######################################***/
+    // 所有客户端
     private final Map<UUID, SocketIOClient> allClients = PlatformDependent.newConcurrentHashMap();
+    // 房间客户端
     private final ConcurrentMap<String, Set<UUID>> roomClients = PlatformDependent.newConcurrentHashMap();
+    // 客户端房间
     private final ConcurrentMap<UUID, Set<String>> clientRooms = PlatformDependent.newConcurrentHashMap();
+    /***#######################################  客户端信息  #######################################***/
 
+    // 名称
     private final String name;
+    // 应答模式
     private final AckMode ackMode;
+    // json支持
     private final JsonSupport jsonSupport;
+    // 存储工厂: HazelcatstStore -> ,RedissonStore -> , MemoryStore ->
     private final StoreFactory storeFactory;
+    // 异常监听器
     private final ExceptionListener exceptionListener;
+
 
     public Namespace(String name, Configuration configuration) {
         super();
@@ -80,18 +100,31 @@ public class Namespace implements SocketIONamespace {
         this.ackMode = configuration.getAckMode();
     }
 
-    public void addClient(SocketIOClient client) {
-        allClients.put(client.getSessionId(), client);
-    }
-
     @Override
     public String getName() {
         return name;
     }
 
+    /**
+     * 添加客户端
+     *
+     * @param client 客户端
+     */
+    public void addClient(SocketIOClient client) {
+        allClients.put(client.getSessionId(), client);
+    }
+
+    /**
+     * 添加多类型时间监听器
+     *
+     * @param eventName  事件名称
+     * @param listener   监听器
+     * @param eventClass 事件类
+     */
     @Override
     public void addMultiTypeEventListener(String eventName, MultiTypeEventListener listener,
-            Class<?>... eventClass) {
+                                          Class<?>... eventClass) {
+
         EventEntry entry = eventListeners.get(eventName);
         if (entry == null) {
             entry = new EventEntry();
@@ -100,10 +133,16 @@ public class Namespace implements SocketIONamespace {
                 entry = oldEntry;
             }
         }
+
         entry.addListener(listener);
         jsonSupport.addEventMapping(name, eventName, eventClass);
     }
-    
+
+    /**
+     * 事件名称
+     *
+     * @param eventName 事件名称
+     */
     @Override
     public void removeAllListeners(String eventName) {
         EventEntry<?> entry = eventListeners.remove(eventName);
@@ -112,9 +151,16 @@ public class Namespace implements SocketIONamespace {
         }
     }
 
+    /**
+     * @param eventName  事件名称
+     * @param eventClass 事件类
+     * @param listener   监听器
+     * @param <T>
+     */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <T> void addEventListener(String eventName, Class<T> eventClass, DataListener<T> listener) {
+
         EventEntry entry = eventListeners.get(eventName);
         if (entry == null) {
             entry = new EventEntry<T>();
@@ -123,42 +169,69 @@ public class Namespace implements SocketIONamespace {
                 entry = oldEntry;
             }
         }
+
         entry.addListener(listener);
         jsonSupport.addEventMapping(name, eventName, eventClass);
     }
 
+    /**
+     * @param eventInterceptor 事件拦截器
+     */
     @Override
     public void addEventInterceptor(EventInterceptor eventInterceptor) {
         eventInterceptors.add(eventInterceptor);
     }
 
+    /**
+     * OnEvent 事件
+     *
+     * @param client     客户端
+     * @param eventName  事件名称
+     * @param args       参数
+     * @param ackRequest ack请求
+     */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void onEvent(NamespaceClient client, String eventName, List<Object> args, AckRequest ackRequest) {
+
+        // 通过事件名称获取监听器
         EventEntry entry = eventListeners.get(eventName);
         if (entry == null) {
             return;
         }
 
         try {
+
+            // 处理 onData 监听器
             Queue<DataListener> listeners = entry.getListeners();
             for (DataListener dataListener : listeners) {
                 Object data = getEventData(args, dataListener);
                 dataListener.onData(client, data, ackRequest);
             }
 
+            // 拦截器处理
             for (EventInterceptor eventInterceptor : eventInterceptors) {
                 eventInterceptor.onEvent(client, eventName, args, ackRequest);
             }
+
         } catch (Exception e) {
+
+            // 异常处理器处理
             exceptionListener.onEventException(e, args, client);
             if (ackMode == AckMode.AUTO_SUCCESS_ONLY) {
                 return;
             }
+
         }
 
+        // 发送应答给客户端
         sendAck(ackRequest);
     }
 
+    /**
+     * 发送应答
+     *
+     * @param ackRequest ackRequest应答请求
+     */
     private void sendAck(AckRequest ackRequest) {
         if (ackMode == AckMode.AUTO || ackMode == AckMode.AUTO_SUCCESS_ONLY) {
             // send ack response if it not executed
@@ -167,6 +240,13 @@ public class Namespace implements SocketIONamespace {
         }
     }
 
+    /**
+     * 获取事件参数
+     *
+     * @param args         参数
+     * @param dataListener 数据监听器
+     * @return 事件数据
+     */
     private Object getEventData(List<Object> args, DataListener<?> dataListener) {
         if (dataListener instanceof MultiTypeEventListener) {
             return new MultiTypeArgs(args);
@@ -178,15 +258,27 @@ public class Namespace implements SocketIONamespace {
         return null;
     }
 
+
+    /**
+     * @param listener 监听器
+     */
     @Override
     public void addDisconnectListener(DisconnectListener listener) {
         disconnectListeners.add(listener);
     }
 
+    /**
+     * 断连处理
+     *
+     * @param client 客户端
+     */
     public void onDisconnect(SocketIOClient client) {
-        Set<String> joinedRooms = client.getAllRooms();        
+
+        // 获取所有的 Rooms
+        Set<String> joinedRooms = client.getAllRooms();
         allClients.remove(client.getSessionId());
 
+        // 离开 Room
         leave(getName(), client.getSessionId());
         storeFactory.pubSubStore().publish(PubSubType.LEAVE, new JoinLeaveMessage(client.getSessionId(), getName(), getName()));
 
@@ -196,20 +288,30 @@ public class Namespace implements SocketIONamespace {
         clientRooms.remove(client.getSessionId());
 
         try {
+            // 断连监听器
             for (DisconnectListener listener : disconnectListeners) {
                 listener.onDisconnect(client);
             }
         } catch (Exception e) {
+            // 异常监听器
             exceptionListener.onDisconnectException(e, client);
         }
+
     }
 
+    /**
+     * @param listener 监听器
+     */
     @Override
     public void addConnectListener(ConnectListener listener) {
         connectListeners.add(listener);
     }
 
+    /**
+     * @param client
+     */
     public void onConnect(SocketIOClient client) {
+
         join(getName(), client.getSessionId());
         storeFactory.pubSubStore().publish(PubSubType.JOIN, new JoinLeaveMessage(client.getSessionId(), getName(), getName()));
 
@@ -220,6 +322,7 @@ public class Namespace implements SocketIONamespace {
         } catch (Exception e) {
             exceptionListener.onConnectException(e, client);
         }
+
     }
 
     @Override
@@ -295,7 +398,15 @@ public class Namespace implements SocketIONamespace {
         }
     }
 
+    /**
+     * @param map
+     * @param key
+     * @param value
+     * @param <K>
+     * @param <V>
+     */
     private <K, V> void join(ConcurrentMap<K, Set<V>> map, K key, V value) {
+
         Set<V> clients = map.get(key);
         if (clients == null) {
             clients = Collections.newSetFromMap(PlatformDependent.<V, Boolean>newConcurrentHashMap());
@@ -305,23 +416,50 @@ public class Namespace implements SocketIONamespace {
             }
         }
         clients.add(value);
+
         // object may be changed due to other concurrent call
         if (clients != map.get(key)) {
+
             // re-join if queue has been replaced
             join(map, key, value);
         }
+
     }
 
+    /**
+     * 加入房间 room
+     *
+     * @param room      房间号
+     * @param sessionId 客户端sessionId
+     */
     public void join(String room, UUID sessionId) {
         join(roomClients, room, sessionId);
         join(clientRooms, sessionId, room);
     }
 
+    /**
+     * 离开房间
+     *
+     * @param room      房间号
+     * @param sessionId 客户端sessionId
+     */
     public void leaveRoom(String room, UUID sessionId) {
+
+        // 将客户端离线
         leave(room, sessionId);
+
+        // 发布离线事件
         storeFactory.pubSubStore().publish(PubSubType.LEAVE, new JoinLeaveMessage(sessionId, room, getName()));
+
     }
 
+    /**
+     * 离开
+     *
+     * @param map       roomClients or clientsRooms
+     * @param room      房间号
+     * @param sessionId 客户端sessionId
+     */
     private <K, V> void leave(ConcurrentMap<K, Set<V>> map, K room, V sessionId) {
         Set<V> clients = map.get(room);
         if (clients == null) {
@@ -334,11 +472,28 @@ public class Namespace implements SocketIONamespace {
         }
     }
 
+    /**
+     * 离开房间 -->
+     *
+     * @param room      房间号
+     * @param sessionId 客户端sessionId
+     */
     public void leave(String room, UUID sessionId) {
+
+        // 离开--> 从 room中删除sessionId
         leave(roomClients, room, sessionId);
+
+        // 离开--> 从 sessionId 删除加入的房间中
         leave(clientRooms, sessionId, room);
+
     }
 
+    /**
+     * 获取客户端加入的房间
+     *
+     * @param client 客户端
+     * @return 该客户端加入的房间
+     */
     public Set<String> getRooms(SocketIOClient client) {
         Set<String> res = clientRooms.get(client.getSessionId());
         if (res == null) {
@@ -347,10 +502,21 @@ public class Namespace implements SocketIONamespace {
         return Collections.unmodifiableSet(res);
     }
 
+    /**
+     * 获取所有的房间
+     *
+     * @return 所有房间
+     */
     public Set<String> getRooms() {
         return roomClients.keySet();
     }
 
+    /**
+     * 获取房间中的所有客户端
+     *
+     * @param room 房间号
+     * @return 客户端信息
+     */
     public Iterable<SocketIOClient> getRoomClients(String room) {
         Set<UUID> sessionIds = roomClients.get(room);
 
@@ -361,7 +527,7 @@ public class Namespace implements SocketIONamespace {
         List<SocketIOClient> result = new ArrayList<SocketIOClient>();
         for (UUID sessionId : sessionIds) {
             SocketIOClient client = allClients.get(sessionId);
-            if(client != null) {
+            if (client != null) {
                 result.add(client);
             }
         }
